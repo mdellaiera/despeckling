@@ -1,2 +1,2 @@
 # despeckling
-SAR Despecking Toolkit
+SAR Despeckling Toolkit
