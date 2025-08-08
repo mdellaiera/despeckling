@@ -1,0 +1,17 @@
+name: despeckling_tbog
+channels:
+- conda-forge
+- defaults
+dependencies:
+- python=3.9
+- scipy
+- pip<24.1 
+- pip:
+  - numpy
+  - "jax[cuda12]"
+  - matplotlib
+  - scikit-learn
+  - scikit-image
+  - Pillow
+  - tqdm
+  - ipykernel

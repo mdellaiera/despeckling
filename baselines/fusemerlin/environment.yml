@@ -1,0 +1,13 @@
+name: despeckling_bm3d
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python
+  - matplotlib
+  - numpy
+  - pip
+  - pip:
+      - rasterio
+      - bm3d
+      - ipykernel
