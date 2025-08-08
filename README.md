@@ -37,27 +37,41 @@ $ mamba env create -f environment.yml
 
 ## Test the different methods
 
-### Mulog
+### PPB
 
-```bash
-$ mamba env create -f env_mulog.yml
-```
-
-Currently not working
+Operational
 
 ### BM3D
 
-```bash
-$ mamba env create -f env_bm3d.yml
-```
+Operational
+
+### SAR2SAR
+
+Operational
+
+SAR2SAR is part of the deepdespeckling GitHub project.
+
+### MERLIN
+
+Operational
+
+MERLIN is part of the deepdespeckling GitHub project.
+
+### Speckle2void
+
+Operational
+
+---
+
+### Mulog
+
+Not operational
+
+
 
 ### SAR-BM3D
 
 Matlab must be installed on your system to use this method. Python can call matlab code through the Matlab engine. Please follow the installation procedure at https://pypi.org/project/matlabengine/.
-
-```bash
-$ mamba env create -f env_sarbm3d.yml
-```
 
 ### GNLM - Guided Non-Local Means
 
@@ -65,29 +79,11 @@ Currently not working
 
 https://github.com/grip-unina/GNLM
 
-### MERLIN
 
-MERLIN is part of the deepdespeckling GitHub project.
-
-```bash
-$ git clone https://github.com/hi-paris/deepdespeckling
-```
 
 ### Fuse-MERLIN
 
 
 
 
-### SAR2SAR
 
-SAR2SAR is part of the deepdespeckling GitHub project.
-
-```bash
-$ git clone https://github.com/hi-paris/deepdespeckling
-```
-
-### Speckle2void
-
-```bash
-$ git clone https://github.com/diegovalsesia/speckle2void
-```

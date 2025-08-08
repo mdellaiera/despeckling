@@ -1,13 +1,15 @@
-import os
 import numpy as np
-import scipy
 import argparse
 import logging
+import bm3d
+import sys
+sys.path.insert(0, '../scripts')
+from baselines_utils import read_image, save_image, prepare_output_directory
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-METHOD_NAME = "PPB"
+METHOD_NAME = "BM3D"
 
 
 def build_argparser():
@@ -24,12 +26,10 @@ def build_argparser():
     return parser
 
 
-def check_input_data(data):
-    """Check if the input data is in the expected format."""
-    if 'cout' not in data:
-        raise ValueError("Input data must contain 'cout' key.")
-    if not isinstance(data['cout'], np.ndarray):
-        raise ValueError("'cout' must be a numpy array.")
+def process_image(data: np.ndarray, sigma_psd: float) -> np.ndarray:
+    input = np.log1p(np.abs(data**2))
+    output = bm3d.bm3d(input, sigma_psd=sigma_psd, stage_arg=bm3d.BM3DStages.ALL_STAGES)
+    return output
 
 
 def main():
@@ -37,21 +37,11 @@ def main():
     parser = build_argparser()
     args = parser.parse_args()
 
-    # Prepare output directory
-    os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
-
-    # Load the file
-    data = scipy.io.loadmat(args.input_path)
-
-    I = data['cout']
-    I_abs = np.log10(np.abs(I**2)+1)
-    I_real = np.real(I)
-    I_imag = np.imag(I)
-    image = np.stack((I_real, I_imag), axis=-1)
-    denoised_image = bm3d.bm3d(I_abs, sigma_psd=args.sigma_psd, stage_arg=bm3d.BM3DStages.ALL_STAGES)
-    results = denoised_image
-
-    scipy.io.savemat(args.output_path, {'cout': results})
+    prepare_output_directory(args.output_path)
+    data = read_image(args.input_path)
+    output = process_image(data, args.sigma_psd)
+    save_image(args.output_path, output)
+    logger.info(f"Completed. Output saved to {args.output_path}")
 
 
 if __name__ == "__main__":
