@@ -45,6 +45,10 @@ Operational
 
 Operational
 
+### SAR-BM3D
+
+Operational
+
 ### SAR2SAR
 
 Operational
@@ -63,21 +67,11 @@ Operational
 
 ---
 
-### Mulog
-
-Not operational
+### Optical-guided
 
 
-
-### SAR-BM3D
-
-Matlab must be installed on your system to use this method. Python can call matlab code through the Matlab engine. Please follow the installation procedure at https://pypi.org/project/matlabengine/.
 
 ### GNLM - Guided Non-Local Means
-
-Currently not working
-
-https://github.com/grip-unina/GNLM
 
 
 

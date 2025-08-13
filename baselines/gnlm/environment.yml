@@ -1,13 +1,14 @@
-name: despeckling_bm3d
+name: despeckling_gnlm
 channels:
   - conda-forge
   - defaults
 dependencies:
-  - python
+  - python==3.9
   - matplotlib
   - numpy
+  - scipy
   - pip
   - pip:
       - rasterio
-      - bm3d
+      - matlabengine
       - ipykernel
