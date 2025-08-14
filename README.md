@@ -69,10 +69,11 @@ MERLIN is part of the deepdespeckling GitHub project.
 
 Operational
 
+### ODNSD - Optical-Driven Nonlocal SAR Despeckling
+
+Operational
+
 ---
-
-### Optical-guided
-
 
 
 ### GNLM - Guided Non-Local Means
