@@ -286,5 +286,42 @@ class DUBF(UBF):
         return S_filtered, error
 
 
-def despeckle():
-    return NotImplementedError("Despeckling function is not implemented yet.")
+def despeckle(sar: jnp.ndarray, S: jnp.ndarray, sigma_d: float, radius: float, n_blocks: int = 10) -> jnp.ndarray:
+    H, W, _ = S.shape
+    kernel_size = 2 * radius + 1  # k = 2 * r + 1
+
+    # Pad the input arrays to handle borders
+    pad_width = ((radius, radius), (radius, radius), (0, 0))
+    S_pad = jnp.pad(S.copy(), pad_width, mode='reflect')  # (H+2*r, W+2*r, D)
+    sar_pad = jnp.pad(sar.copy(), pad_width, mode='reflect')  # (H+2*r, W+2*r, 1)
+
+    # Compute start and end indices for memory efficiency
+    start_indices, end_indices = compute_indices_from_n_blocks(n_blocks, H, W, padding=radius)
+
+    sar_filtered = jnp.zeros_like(sar_pad)  # Initialize output tensor
+
+    # Iterate over the blocks
+    progress_bar = tqdm(total=len(start_indices), desc="Despeckling", unit="block")
+    for start_index, end_index in zip(start_indices, end_indices):
+        # Extract windows (patches) for all spatial locations
+        S_patches = extract_patches(S_pad, kernel_size, start_index, end_index)   # (H', W', k, k, D)
+        sar_patches = extract_patches(sar_pad, kernel_size, start_index, end_index)  # (H', W', k, k, 1)
+
+        S_centers = S_patches[..., radius, radius, :][..., None, None, :]  # Centers are located at (radius, radius)
+
+        # Compute similarity map
+        diff = S_patches - S_centers # (H', W', k, k, D)
+        distsq = jnp.sum((diff)**2, axis=-1) 
+        similarity_map = jnp.exp(-distsq / (2 * sigma_d ** 2))[..., None]
+        Z = 1 / similarity_map.sum(axis=(-3, -2))  # (H', W')
+
+        # Filtering
+        update_block = (similarity_map * sar_patches).sum(axis=(-3, -2)) * Z  # (H', W', 1)
+
+        # Update only the current block
+        sar_filtered = jax.lax.dynamic_update_slice(sar_filtered, update_block, start_index + (0,))  
+        progress_bar.update(1)
+    progress_bar.close()
+    
+    # Remove padding
+    return sar_filtered[radius:-radius, radius:-radius, :]
