@@ -81,37 +81,3 @@ def compute_indices_from_n_blocks(
             start_indices.append(start)
             end_indices.append(end)
     return start_indices, end_indices
-
-
-def distanceL1(S1: jnp.ndarray, S2: jnp.ndarray) -> jnp.ndarray:
-    """
-    Computes the L1 distance between two tensors.
-    
-    Parameters:
-    S1: jnp.ndarray
-        First tensor.
-    S2: jnp.ndarray
-        Second tensor.
-    
-    Returns:
-    jnp.ndarray
-        The L1 distance between S1 and S2.
-    """
-    return jnp.abs(S1 - S2)
-
-
-def distanceL2(S1: jnp.ndarray, S2: jnp.ndarray) -> jnp.ndarray:
-    """
-    Computes the L2 distance between two tensors.
-    
-    Parameters:
-    S1: jnp.ndarray
-        First tensor.
-    S2: jnp.ndarray
-        Second tensor.
-    
-    Returns:
-    jnp.ndarray
-        The L2 distance between S1 and S2.
-    """
-    return (S1 - S2) ** 2
