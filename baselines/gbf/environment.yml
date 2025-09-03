@@ -1,0 +1,16 @@
+name: despeckling_gbf
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python==3.9
+  - matplotlib
+  - numpy
+  - scipy
+  - pip
+  - pip:
+      - rasterio
+      - matlabengine
+      - "jax[cuda12]"
+      - tqdm
+      - ipykernel

@@ -18,7 +18,7 @@ class SARDespeckling:
     def __init__(self):
         self.error = None
 
-    def _despeckle(self, sar: jnp.ndarray, descriptor: jnp.ndarray, sigma_distance: float, radius: float, n_blocks: int = 10) -> jnp.ndarray:
+    def _despeckle(self, sar: jnp.ndarray, descriptor: jnp.ndarray, sigma_distance: float, radius_despeckling: float, n_blocks: int = 10) -> jnp.ndarray:
         """
         Despeckle SAR image using texture descriptors.
         
@@ -29,7 +29,7 @@ class SARDespeckling:
             Texture descriptor tensor of shape (H, W, D) where D is the number of descriptors.
         sigma_distance : float
             Standard deviation for the Gaussian kernel used in similarity computation.
-        radius : float
+        radius_despeckling : float
             Radius to consider neighboring pixels.
         n_blocks : int
             Number of blocks for processing the image in parallel.
@@ -39,15 +39,15 @@ class SARDespeckling:
             Filtered SAR image of shape (H, W, 1).
         """
         H, W, _ = descriptor.shape
-        kernel_size = 2 * radius + 1  # k = 2 * r + 1
+        kernel_size = 2 * radius_despeckling + 1  # k = 2 * r + 1
 
         # Pad the input arrays to handle borders
-        pad_width = ((radius, radius), (radius, radius), (0, 0))
+        pad_width = ((radius_despeckling, radius_despeckling), (radius_despeckling, radius_despeckling), (0, 0))
         descriptor_pad = jnp.pad(descriptor.copy(), pad_width, mode='reflect')  # (H+2*r, W+2*r, D)
         sar_pad = jnp.pad(sar.copy(), pad_width, mode='reflect')  # (H+2*r, W+2*r, 1)
 
         # Compute start and end indices for memory efficiency
-        start_indices, end_indices = compute_indices_from_n_blocks(n_blocks, H, W, padding=radius)
+        start_indices, end_indices = compute_indices_from_n_blocks(n_blocks, H, W, padding=radius_despeckling)
 
         sar_filtered = jnp.zeros_like(sar_pad)  # Initialize output tensor
 
@@ -58,7 +58,7 @@ class SARDespeckling:
             descriptor_patches = extract_patches(descriptor_pad, kernel_size, start_index, end_index)   # (H', W', k, k, D)
             sar_patches = extract_patches(sar_pad, kernel_size, start_index, end_index)  # (H', W', k, k, 1)
 
-            descriptor_centers = descriptor_patches[..., radius, radius, :][..., None, None, :]  # Centers are located at (radius, radius)
+            descriptor_centers = descriptor_patches[..., radius_despeckling, radius_despeckling, :][..., None, None, :]  # Centers are located at (r, r)
 
             # Compute similarity map
             difference = descriptor_patches - descriptor_centers # (H', W', k, k, D)
@@ -75,7 +75,7 @@ class SARDespeckling:
         progress_bar.close()
         
         # Remove padding
-        return sar_filtered[radius:-radius, radius:-radius, :]
+        return sar_filtered[radius_despeckling:-radius_despeckling, radius_despeckling:-radius_despeckling, :]
     
     def _check_inputs(self, sar: jnp.ndarray, opt: jnp.ndarray):
         """
@@ -169,7 +169,7 @@ class SARDespeckling:
                          sar: jnp.ndarray, 
                          descriptor: jnp.ndarray,
                          sigma_distance: float, 
-                         radius: int, 
+                         radius_despeckling: int, 
                          n_blocks: int) -> jnp.ndarray:
         """        
         Despeckle the SAR image using the filtered texture descriptor.
@@ -181,7 +181,7 @@ class SARDespeckling:
             Filtered texture descriptor of shape (H, W, D).
         sigma_distance : float
             Standard deviation for the Gaussian kernel used in similarity computation.
-        radius : int
+        radius_despeckling : int
             Radius to consider neighboring pixels.
         n_blocks : int
             Number of blocks for processing the image in parallel.
@@ -194,7 +194,7 @@ class SARDespeckling:
         sar_filtered = self._despeckle(sar=sar, 
                                        descriptor=descriptor, 
                                        sigma_distance=sigma_distance, 
-                                       radius=radius, 
+                                       radius_despeckling=radius_despeckling, 
                                        n_blocks=n_blocks)
         time_end = time.time()
         logging.info(f"Despeckling completed in {time_end - time_start:.2f} seconds.")
@@ -256,7 +256,7 @@ class SARDespeckling:
             sar=sar, 
             descriptor_filtered=descriptor_filtered, 
             sigma_distance=sigma_distance, 
-            radius=radius_despeckling, 
+            radius_despeckling=radius_despeckling, 
             n_blocks=n_blocks_despeckling
         )
         
