@@ -1,5 +1,4 @@
-# Despeckling
-SAR Despeckling Toolkit
+# SAR Despeckling Toolkit
 
 This repository contains the multiple despeckling baselines and the new method proposed in our article.
 
@@ -15,7 +14,7 @@ $ ~/miniforge3/bin/conda init
 
 ## Conda Installation
 
-If you prefer to install Conda instead of mamba, you can refer to the following.
+If you prefer to install conda instead of mamba, you can refer to the following.
 
 ```bash
 $ mkdir -p ~/miniconda3
@@ -35,54 +34,24 @@ $ cd despeckling
 $ mamba env create -f environment.yml
 ```
 
-## Test the different methods
+The environment created allows to use our method.
 
-### PPB
+## Alternative methods
 
-Operational
+The baselines folder includes code or Python wrappers that allow you to reuse methodologies from the literature. Each method can be run using its corresponding environment. For detailed descriptions of each non-deep learning method, please refer to the excellent article [A Tutorial on Speckle Reduction in Synthetic Aperture Radar Images](https://ieeexplore.ieee.org/document/6616053).
 
-### BM3D
-
-Operational
-
-### SAR-BM3D
-
-Operational
-
-### FANS
-
-Operational
-
-### SAR2SAR
-
-Operational
-
-SAR2SAR is part of the deepdespeckling GitHub project.
-
-### MERLIN
-
-Operational
-
-MERLIN is part of the deepdespeckling GitHub project.
-
-### Speckle2void
-
-Operational
-
-### GBF - Optical-Driven Nonlocal SAR Despeckling
-
-Operational
-
----
+Matlab must be installed on your system to use this method. Python can call matlab code through the Matlab engine. Please follow the installation procedure at https://pypi.org/project/matlabengine/.
 
 
-### GNLM - Guided Non-Local Means
-
-
-
-### Fuse-MERLIN
-
-
-
-
-
+| Methods | Input type | Optical-Guided | Deep learning | Article | Code | 
+| :------ | :--------: | :------------: | :-----------: | :-----: |:----:|
+| PPB     | Amplitude  | No | No | [Iterative Weighted Maximum Likelihood Denoising With Probabilistic Patch-Based Weights](https://ieeexplore.ieee.org/document/5196737) | [Author personal webpage](https://www.charles-deledalle.fr/pages/ppb.php) | 
+| BM3D    | Ampltide | No | No | [Image denoising by sparse 3D transform-domain collaborative ltering](https://ieeexplore.ieee.org/document/4271520) | [University website](https://webpages.tuni.fi/foi/GCF-BM3D/) |
+| SAR-BM3D | Amplitude | No | No | [A Nonlocal SAR Image Denoising Algorithm Based on LLMMSE Wavelet Shrinkage](https://ieeexplore.ieee.org/document/5989862) | [University website](https://www.grip.unina.it/download/prog/SAR-BM3D/) |
+| FANS   |    | No | No | [Fast Adaptive Nonlocal SAR Despeckling](https://ieeexplore.ieee.org/document/6564458) | [University website](https://www.grip.unina.it/download/prog/FANS/) |
+| SAR2SAR |    | No | Yes | [SAR2SAR: a semi-supervised despeckling algorithm for SAR images](https://ieeexplore.ieee.org/document/9399231) | [GitHub](https://github.com/hi-paris/deepdespeckling) |
+| MERLIN   | Complex data | No | Yes | [As if by magic: self-supervised training of deep despeckling networks with MERLIN](https://arxiv.org/abs/2110.13148) | [GitHub](https://github.com/hi-paris/deepdespeckling) |
+| Speckle2void |    | No | Yes | [Speckle2Void: Deep Self-Supervised SAR Despeckling with Blind-Spot Convolutional Neural Networks](https://arxiv.org/abs/2007.02075) | [GitHub](https://github.com/diegovalsesia/speckle2void) |
+| GBF    | Amplitude | Yes | No | [SAR despeckling guided by an optical image](https://ieeexplore.ieee.org/document/6947286) | No code available online, it has been re-implemented based on the article |
+| GNLM      | Amplitude | Yes | No | [Guided patch-wise nonlocal SAR despeckling](https://arxiv.org/abs/1811.11872) | [University website](https://github.com/grip-unina/GNLM) |
+| Fuse-MERLIN   | Complex data | Yes | Yes | [SELF-SUPERVISED LEARNING OF MULTI-MODAL COOPERATION FOR SAR DESPECKLING](https://telecom-paris.hal.science/hal-04676452v1/document) | Please contact the main author at ... to obtain filtered images |
