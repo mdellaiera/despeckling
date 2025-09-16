@@ -70,7 +70,7 @@ def main():
 
     prepare_output_directory(args.output_path)
     data = read_image(args.input_path)
-    output = process_image(data, args.checkpoint_path, args.project_path)
+    output = process_image(data, args.project_path)
     save_image(args.output_path, output)
     logger.info(f"Completed. Output saved to {args.output_path}")
 

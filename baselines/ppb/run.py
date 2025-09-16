@@ -5,7 +5,7 @@ import logging
 import matlab.engine
 import sys
 sys.path.insert(0, '../scripts')
-from baselines_utils import read_image, save_image, prepare_output_directory
+from baselines_utils import read_image, save_image, prepare_output_directory, c2ap, ap2c
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -44,17 +44,18 @@ def process_image(data: np.ndarray,
                   nbits: int, 
                   estimate_path: str = None) -> np.ndarray:
     assert estimate_path is None, "Not implemented error: estimate_path is not supported in this implementation."
-    input = np.log1p(np.abs(data))
+    amplitude, phase = c2ap(data)
     eng = matlab.engine.start_matlab()
     eng.addpath(os.path.dirname(matlab_script_path), nargout=0)
     eng.eval("cd('{}')".format(os.path.dirname(matlab_script_path)), nargout=0)
     try:
-        y = eng.ppb_nakagami(matlab.double(input.tolist()), matlab.double(L), matlab.double(hw), matlab.double(hd), matlab.double(alpha), matlab.double(T), matlab.double(nbits), nargout=1)
-        output = np.array(y).reshape(input.shape)
+        y = eng.ppb_nakagami(matlab.double(amplitude.tolist()), matlab.double(L), matlab.double(hw), matlab.double(hd), matlab.double(alpha), matlab.double(T), matlab.double(nbits), nargout=1)
+        filtered = np.array(y).reshape(amplitude.shape)
         eng.quit()
     except Exception as e:
         eng.quit()
         raise RuntimeError(f"Error during execution: {e}")
+    output = ap2c(filtered, phase)
     return output
 
 

@@ -6,7 +6,7 @@ import logging
 import matlab.engine
 import sys
 sys.path.insert(0, '../scripts')
-from baselines_utils import read_image, save_image, prepare_output_directory
+from baselines_utils import read_image, save_image, prepare_output_directory, c2ap, ap2c
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -36,17 +36,18 @@ def process_image(data: np.ndarray,
         os.path.dirname(os.path.abspath(matlab_script_path)), "lib_opencv210/glnxa64"
     ) + ":" + os.environ.get('LD_LIBRARY_PATH', '')
 
-    input = np.log1p(np.abs(data))
+    amplitude, phase = c2ap(data)
     eng = matlab.engine.start_matlab()
     eng.addpath(os.path.dirname(matlab_script_path), nargout=0)
     eng.eval("cd('{}')".format(os.path.dirname(matlab_script_path)), nargout=0)
     try:
-        y = eng.SARBM3D_v10(matlab.double(input.tolist()), matlab.double(L), nargout=2)
-        output = np.array(y[0]).reshape(input.shape)
+        y = eng.SARBM3D_v10(matlab.double(amplitude.tolist()), matlab.double(L), nargout=2)
+        filtered = np.array(y[0]).reshape(amplitude.shape)
         eng.quit()
     except Exception as e:
         eng.quit()
         raise RuntimeError(f"Error during execution: {e}")
+    output = ap2c(filtered, phase)
     return output
 
 

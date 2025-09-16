@@ -4,7 +4,7 @@ import logging
 import bm3d
 import sys
 sys.path.insert(0, '../scripts')
-from baselines_utils import read_image, save_image, prepare_output_directory
+from baselines_utils import read_image, save_image, prepare_output_directory, c2ap, ap2c
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,8 +27,9 @@ def build_argparser():
 
 
 def process_image(data: np.ndarray, sigma_psd: float) -> np.ndarray:
-    input = np.log1p(np.abs(data**2))
-    output = bm3d.bm3d(input, sigma_psd=sigma_psd, stage_arg=bm3d.BM3DStages.ALL_STAGES)
+    amplitude, phase = c2ap(data)
+    filtered = bm3d.bm3d(amplitude, sigma_psd=sigma_psd, stage_arg=bm3d.BM3DStages.ALL_STAGES)
+    output = ap2c(filtered, phase)
     return output
 
 

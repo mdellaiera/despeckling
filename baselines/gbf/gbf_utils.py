@@ -52,9 +52,6 @@ def extract_patches(tensor: jnp.ndarray, kernel_size: int) -> jnp.ndarray:
 class GBF:
     """Guided Bilateral Filter (GBF)."""
 
-    def __init__(self):
-        pass
-
     def _compute_luminance_weights(self, 
                                     luminance: jnp.ndarray, 
                                     radius: int, 
