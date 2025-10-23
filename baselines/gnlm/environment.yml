@@ -12,4 +12,3 @@ dependencies:
       - rasterio
       - matlabengine
       - ipykernel
-      - pybind11

@@ -56,5 +56,20 @@ Matlab must be installed on your system to use this method. Python can call matl
 | GNLM      | Amplitude | Yes | No | [Guided patch-wise nonlocal SAR despeckling](https://arxiv.org/abs/1811.11872) | [University website](https://github.com/grip-unina/GNLM) |
 | Fuse-MERLIN   | Complex data | Yes | Yes | [SELF-SUPERVISED LEARNING OF MULTI-MODAL COOPERATION FOR SAR DESPECKLING](https://telecom-paris.hal.science/hal-04676452v1/document) | Please contact the main author at ... to obtain filtered images |
 
+## Project Structure
+
+```
+.
+├── dataset
+├── deepdespeckling
+├── despeckling
+├── FANS_v10_linux64
+├── GNLM
+├── ppb
+├── SARBM3D_v10_linux64
+├── SAR-CAM
+└── speckle2void
+```
+
 ## Results
 
