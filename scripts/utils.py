@@ -48,6 +48,22 @@ def rgb2gray(rgb: Union[np.ndarray, jnp.ndarray]) -> Union[np.ndarray, jnp.ndarr
     return jnp.dot(rgb[..., :3], jnp.array([1./3.] * 3))
 
 
+def T(sar: np.ndarray, expand_dims: bool = False) -> np.ndarray:
+    sar = jnp.array(sar)
+    sar = 20 * np.log1p(np.abs(sar))
+    sar = (sar - sar.min()) / (sar.max() - sar.min())  # Normalize to [0, 1]
+    if sar.ndim == 2 and expand_dims:
+        sar = jnp.expand_dims(sar, axis=-1)  # (H, W) -> (H, W, 1)
+    return sar
+
+
+def invT(sar: np.ndarray, scale: float = 255.) -> np.ndarray:
+    sar = jnp.array(sar)
+    sar = sar * scale
+    sar = jnp.expm1(sar / 20)
+    return sar
+
+
 class BaseFilter:
     """Base class for despeckling methods."""
 
