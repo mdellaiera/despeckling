@@ -1,14 +1,9 @@
 import os
 os.environ['JAX_PLATFORM_NAME'] = 'cpu'
-import numpy as np
-import jax.numpy as jnp
 import argparse
 import logging
-from typing import List
-import sys
-sys.path.append(os.path.dirname(os.path.abspath(__file__)) + '/../scripts')
-from baselines_utils import read_image, save_image, prepare_output_directory
-from baselines.gbf.gbf import SARDespeckling
+from scripts.io import read_image, save_image, prepare_output_directory, KEY_INPUT_SAR, KEY_INPUT_EO, KEY_OUTPUT_SAR
+from methods.gbf.gbf import GBF
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -38,58 +33,29 @@ def build_argparser():
     return parser
 
 
-def process_image(data_sar: np.ndarray, 
-                  data_opt: np.ndarray, 
-                  matlab_script_path: str,
-                  L: int,
-                  window_size: int, 
-                  lambda_S: float, 
-                  lambda_RO: float, 
-                  lambda_RS: float,
-                  N: List[int],
-                  gamma: float,
-                  a0: float) -> np.ndarray:
-    input_opt = jnp.array(data_opt, dtype=jnp.float32).mean(axis=-1).squeeze()
-    input_sar = jnp.array(data_sar, dtype=jnp.float32).squeeze()
-
-    despeckling = SARDespeckling()
-    output = despeckling.filter(
-        sar=input_sar,
-        opt=input_opt,
-        matlab_script_path=matlab_script_path,
-        L=L,
-        window_size=window_size,
-        lambda_S=lambda_S,
-        lambda_RO=lambda_RO,
-        lambda_RS=lambda_RS,
-        N=N,
-        gamma=gamma,
-        a0=a0
-    )
-
-    return output
-
-
 def main():
     logger.info(f"Starting {METHOD_NAME} denoising process.")
     parser = build_argparser()
     args = parser.parse_args()
 
+    Filter = GBF(args.matlab_script_path)
+    input_sar = read_image(args.input_path, key=KEY_INPUT_SAR)
+    input_eo = read_image(args.input_path, key=KEY_INPUT_EO)
+    output_sar = Filter.filter(
+        input_sar, 
+        input_eo, 
+        args.L,
+        args.window_size,
+        args.lambda_S,
+        args.lambda_RO,
+        args.lambda_RS,
+        args.N,
+        args.gamma,
+        args.a0
+    )
+
     prepare_output_directory(args.output_path)
-    data_sar = read_image(args.input_path_sar, 'sar')
-    data_opt = read_image(args.input_path_opt, 'eo')
-    output = process_image(data_sar, 
-                           data_opt, 
-                           args.matlab_script_path, 
-                           args.L, 
-                           args.window_size, 
-                           args.lambda_S, 
-                           args.lambda_RO, 
-                           args.lambda_RS, 
-                           args.N, 
-                           args.gamma, 
-                           args.a0)
-    save_image(args.output_path, output, 'sar_despeckled')
+    save_image(args.output_path, output_sar, KEY_OUTPUT_SAR)
     logger.info(f"Completed. Output saved to {args.output_path}")
 
 

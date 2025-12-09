@@ -11,6 +11,38 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def process_image(data_sar: np.ndarray, 
+                  data_opt: np.ndarray, 
+                  matlab_script_path: str,
+                  L: int,
+                  window_size: int, 
+                  lambda_S: float, 
+                  lambda_RO: float, 
+                  lambda_RS: float,
+                  N: List[int],
+                  gamma: float,
+                  a0: float) -> np.ndarray:
+    input_opt = jnp.array(data_opt, dtype=jnp.float32).mean(axis=-1).squeeze()
+    input_sar = jnp.array(data_sar, dtype=jnp.float32).squeeze()
+
+    despeckling = SARDespeckling()
+    output = despeckling.filter(
+        sar=input_sar,
+        opt=input_opt,
+        matlab_script_path=matlab_script_path,
+        L=L,
+        window_size=window_size,
+        lambda_S=lambda_S,
+        lambda_RO=lambda_RO,
+        lambda_RS=lambda_RS,
+        N=N,
+        gamma=gamma,
+        a0=a0
+    )
+
+    return output
+
+
 def extract_patches(tensor: jnp.ndarray, kernel_size: int) -> jnp.ndarray:
         """
         Extracts sliding patches from a 2D tensor.

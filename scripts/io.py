@@ -8,6 +8,7 @@ SUPPORTED_FORMATS = ('.npy', '.npz', '.mat')
 KEY_INPUT_EO = 'eo'
 KEY_INPUT_SAR = 'sar'
 KEY_OUTPUT_SAR = 'sar_despeckled'
+KEY_INPUT_EMBEDDINGS = 'embeddings'
 
 
 def read_image(input_path: str, key: str) -> np.ndarray:
