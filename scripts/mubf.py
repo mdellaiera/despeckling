@@ -4,7 +4,7 @@ from typing import Tuple, List
 from tqdm import tqdm
 import logging
 from scripts.filters import gaussian_kernel_2d
-from scripts.utils import extract_patches, compute_indices_from_n_blocks
+from scripts.parallelisation import extract_patches, compute_indices_from_n_blocks
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -96,6 +96,7 @@ class MUBF:
     def _compute_weights(self, 
                          guides: List[jnp.ndarray], 
                          sigmas: List[float],
+                         gammas: List[float],
                          radius: int, 
                          gaussian_weights: jnp.ndarray,
                          start_index: Tuple[int, int], 
@@ -108,6 +109,8 @@ class MUBF:
             List of guide tensors, each of shape (H, W, 1).
         sigmas : List[float]
             List of standard deviations for the Gaussian weights corresponding to each guide.
+        gammas : List[float]
+            List of scaling factors for each guide.
         radius : int
             The radius of the Gaussian kernel.
         gaussian_weights : jnp.ndarray
@@ -121,8 +124,8 @@ class MUBF:
             The computed weights of shape (H', W', k, k) where H' and W' are the dimensions of the patches.
         """
         weights = gaussian_weights.copy()
-        for guide, sigma in zip(guides, sigmas):
-            weights *= self._compute_guide_weights(guide, sigma, radius, start_index, end_index)
+        for guide, sigma, gamma in zip(guides, sigmas, gammas):
+            weights *= gamma * self._compute_guide_weights(guide, sigma, radius, start_index, end_index)
         return weights
     
     def _update(self, target: jnp.ndarray, update: jnp.ndarray, alpha: float) -> Tuple[jnp.ndarray, float]:
@@ -138,6 +141,7 @@ class MUBF:
                           update: jnp.ndarray,
                           guides: List[jnp.ndarray],
                           sigmas: List[float],
+                          gammas: List[float],
                           gaussian_weights: jnp.ndarray,
                           kernel_size: int) -> jnp.ndarray:
         """
@@ -156,6 +160,8 @@ class MUBF:
             List of guide tensors, each of shape (H, W, 1).
         sigmas : List[float]
             List of standard deviations for the Gaussian weights corresponding to each guide.
+        gammas : List[float]
+            List of scaling factors for each guide.
         gaussian_weights : jnp.ndarray
             Precomputed Gaussian weights of shape (1, 1, k, k, 1).
         kernel_size : int
@@ -164,7 +170,7 @@ class MUBF:
         # Extract windows (patches) for all spatial locations
         radius = kernel_size // 2
         patches = extract_patches(target, kernel_size, start_index, end_index)   # (H', W', k, k, D)
-        weights = self._compute_weights(guides, sigmas, radius, gaussian_weights, start_index, end_index)   # (H', W', k, k)
+        weights = self._compute_weights(guides, sigmas, gammas, radius, gaussian_weights, start_index, end_index)   # (H', W', k, k)
 
         # Difference from center/target pixel
         centers = patches[..., radius, radius, :]  # Centers are located at (radius, radius)
@@ -184,6 +190,7 @@ class MUBF:
         guides: List[jnp.ndarray],
         sigma_spatial: float = 5,
         sigma_guides: List[float] = [0.05, 0.05],
+        gamma_guides: List[float] = [1.0, 1.0],
         alpha: float = 1.0,
         n_iterations: int = 30,
         n_blocks: int = 10
@@ -201,6 +208,8 @@ class MUBF:
             Spatial standard deviation for Gaussian kernel.
         sigma_guides : List[float]
             List of standard deviations for Gaussian weights corresponding to each guide.
+        gamma_guides : List[float]
+            List of scaling factors for each guide.
         alpha : float
             Scaling factor for the update step.
         n_iterations : int
@@ -240,6 +249,7 @@ class MUBF:
                     update=update,
                     guides=guides,
                     sigmas=sigma_guides,
+                    gammas=gamma_guides,
                     gaussian_weights=gaussian_weights,
                     kernel_size=kernel_size
                 )

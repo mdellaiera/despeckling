@@ -1,83 +1,56 @@
 import numpy as np
-import jax
 import jax.numpy as jnp
-from typing import Tuple, List
+from typing import Tuple, Union
 
 
-def extract_patches(
-        tensor: jnp.ndarray, 
-        kernel_size: int,
-        start_index: Tuple[int, int],
-        end_indices: Tuple[int, int]) -> jnp.ndarray:
-    """
-    Extracts sliding patches from a 2D or 3D tensor.
-    This function is designed to be memory efficient by extracting patches only within the specified indices.
-
-    Parameters:
-    tensor: 
-        Input tensor of size (H, W, D) or (H, W)
-    kernel_size: int
-        Size of the square kernel (must be odd).
-    start_index: Tuple[int, int]
-        Starting indices for the patch extraction.
-    end_indices: Tuple[int, int]
-        Ending indices for the patch extraction.
-    Returns: 
-    jnp.ndarray
-        A tensor of size (H', W', kernel_size, kernel_size, D) or (H', W', kernel_size, kernel_size) containing the extracted patches,
-        where H' and W' are the dimensions defined by the start and end indices.
-    """
-    D = tensor.shape[2:]  # Tuple corresponding to the size of the descriptor, which can be empty if input tensor is 2D
-    pad = kernel_size // 2  # Integer, the pad size usually corresponds to half the size of the kernel
-
-    # Pad the input tensor to handle borders. The last part '((0, 0),) * len(D)' allows to handle N-D tensors.
-    tensor = jnp.pad(tensor, ((pad, pad), (pad, pad)) + ((0, 0),) * len(D), mode='reflect')
-
-    # Create indices for the sliding window
-    h_idx = jnp.arange(start_index[0], end_indices[0])
-    w_idx = jnp.arange(start_index[1], end_indices[1])
-
-    # Create a function to extract patches for each (i, j) pair
-    def get_patch(i: int, j: int) -> jnp.ndarray:
-        patch = jax.lax.dynamic_slice(operand=tensor, 
-                                      start_indices=(i, j) + (0,)*len(D), 
-                                      slice_sizes=(kernel_size, kernel_size) + D)
-        return patch
-
-    # Use vmap to vectorize the extraction of patches across the height and width indices
-    patches = jax.vmap(
-        lambda i: jax.vmap(lambda j: get_patch(i, j))(w_idx)
-    )(h_idx)
-    return patches 
-
-
-def compute_indices_from_n_blocks(
-        n_blocks: int, 
-        H: int, 
-        W: int,
-        padding: int = 0
-) -> Tuple[List[Tuple[int, int]], List[Tuple[int, int]]]:
-    """
-    Computes the starting and ending indices for extracting patches from a tensor.
+def c2ap(image: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Convert a complex image to amplitude.
     
+    Arguments:
+        image (np.ndarray): A complex-valued image of shape (H, W) or (H, W, C).
     Returns:
-    Tuple[List[Tuple[int, int]], List[Tuple[int, int]]]
-        Starting and ending indices for patch extraction.
+        amplitude (np.ndarray): The amplitude representation of the image.
+        phase (np.ndarray): The phase representation of the image, or None if the input is not complex.
     """
-    H = H + 2 * padding
-    W = W + 2 * padding
+    amplitude = 20. * np.log1p(np.abs(image))
+    if not np.iscomplexobj(image):
+        return amplitude, None
+    phase = np.angle(image)
+    return amplitude, phase
 
-    # Compute the split points along each dimension
-    h_edges = np.linspace(0, H, n_blocks + 1, dtype=int)
-    w_edges = np.linspace(0, W, n_blocks + 1, dtype=int)
 
-    # Generate all combinations of start and end indices
-    start_indices = []
-    end_indices = []
-    for i in range(n_blocks):
-        for j in range(n_blocks):
-            start = (h_edges[i], w_edges[j])
-            end = (h_edges[i+1], w_edges[j+1])
-            start_indices.append(start)
-            end_indices.append(end)
-    return start_indices, end_indices
+def ap2c(amplitude: np.ndarray, phase: np.ndarray) -> np.ndarray:
+    """Convert amplitude and phase back to complex representation.
+
+    Arguments:
+        amplitude (np.ndarray): The amplitude representation of the image.
+        phase (np.ndarray): The phase representation of the image, or None.
+    Returns:
+        image (np.ndarray): A complex-valued image reconstructed from amplitude and phase if phase is provided,
+                            otherwise returns the amplitude as is.
+    """
+    modulus = np.exp(amplitude / 20.) - 1
+    if phase is None:
+        return modulus
+    return modulus * np.exp(1j * phase)
+
+
+def rgb2gray(rgb: Union[np.ndarray, jnp.ndarray]) -> Union[np.ndarray, jnp.ndarray]:
+    """Convert RGB image to grayscale.
+    
+    Arguments:
+        rgb (Union[np.ndarray, jnp.ndarray]): An RGB image of shape (H, W, 3).
+    Returns:
+        gray (Union[np.ndarray, jnp.ndarray]): The grayscale representation of the image.
+    """
+    if isinstance(rgb, np.ndarray):
+        return np.dot(rgb[..., :3], np.array([1./3.] * 3))
+    return jnp.dot(rgb[..., :3], jnp.array([1./3.] * 3))
+
+
+class BaseFilter:
+    """Base class for despeckling methods."""
+
+    def  __init__(self):
+        pass
+    

@@ -18,7 +18,13 @@ class SARDespeckling:
     def __init__(self):
         self.error = None
 
-    def _despeckle(self, sar: jnp.ndarray, descriptor: jnp.ndarray, sigma_distance: float, radius_despeckling: float, n_blocks: int = 10) -> jnp.ndarray:
+    def _despeckle(
+            self, 
+            sar: jnp.ndarray, 
+            descriptor: jnp.ndarray, 
+            sigma_distance: float, 
+            radius_despeckling: int, 
+            n_blocks: int) -> jnp.ndarray:
         """
         Despeckle SAR image using texture descriptors.
         
@@ -29,7 +35,7 @@ class SARDespeckling:
             Texture descriptor tensor of shape (H, W, D) where D is the number of descriptors.
         sigma_distance : float
             Standard deviation for the Gaussian kernel used in similarity computation.
-        radius_despeckling : float
+        radius_despeckling : int
             Radius to consider neighboring pixels.
         n_blocks : int
             Number of blocks for processing the image in parallel.
@@ -90,14 +96,17 @@ class SARDespeckling:
         assert sar.ndim == 3 and sar.shape[-1] == 1, "SAR image should be (H, W, 1)"
         assert opt.ndim == 3 and opt.shape[-1] in [1, 3], "Optical image should be (H, W, 1) or (H, W, 3)"
 
-    def _step1_compute_texture_descriptor(self, opt: jnp.ndarray, radius: float) -> jnp.ndarray:
+    def _step1_compute_texture_descriptor(
+            self, 
+            opt: jnp.ndarray, 
+            radius: int) -> jnp.ndarray:
         """
         Compute the texture descriptor for the optical image.
 
         Parameters
         opt : jnp.ndarray
             Input optical image of shape (H, W, 3) or (H, W, 1).
-        radius : float
+        radius : int
             Radius for the texture descriptor.
 
         Returns
@@ -114,14 +123,16 @@ class SARDespeckling:
         logging.info(f"Texture descriptor computed in {time_end - time_start:.2f} seconds.")
         return desc
 
-    def _step2_filter_texture_descriptor(self, 
-                                         target: jnp.ndarray, 
-                                         guides: List[jnp.ndarray],
-                                         sigma_spatial: float, 
-                                         sigma_guides: List[float],
-                                         alpha: float, 
-                                         n_iterations: int, 
-                                         n_blocks: int) -> jnp.ndarray:
+    def _step2_filter_texture_descriptor(
+            self, 
+            target: jnp.ndarray, 
+            guides: List[jnp.ndarray],
+            sigma_spatial: float, 
+            sigma_guides: List[float],
+            gamma_guides: List[float],
+            alpha: float, 
+            n_iterations: int, 
+            n_blocks: int) -> jnp.ndarray:
         """
         Filter the texture descriptor using MUBF.
 
@@ -134,10 +145,10 @@ class SARDespeckling:
             Input SAR image of shape (H, W, 1).
         sigma_spatial : float
             Spatial standard deviation for Gaussian kernel.
-        sigma_luminance_opt : float
-            Optical luminance standard deviation for Gaussian weighting.
-        sigma_luminance_sar : float
-            SAR luminance standard deviation for Gaussian weighting.
+        sigma_guides : List[float]
+            List of standard deviations for each guide.
+        gamma_guides : List[float]
+            List of scaling factors for each guide.
         alpha : float
             Scaling factor for the update step.
         n_iterations : int
@@ -157,6 +168,7 @@ class SARDespeckling:
                                            guides=guides, 
                                            sigma_spatial=sigma_spatial, 
                                            sigma_guides=sigma_guides, 
+                                           gamma_guides=gamma_guides,
                                            alpha=alpha, 
                                            n_iterations=n_iterations, 
                                            n_blocks=n_blocks)
@@ -165,12 +177,13 @@ class SARDespeckling:
         self.error = error
         return desc_filtered
     
-    def _step3_despeckle(self, 
-                         sar: jnp.ndarray, 
-                         descriptor: jnp.ndarray,
-                         sigma_distance: float, 
-                         radius_despeckling: int, 
-                         n_blocks: int) -> jnp.ndarray:
+    def _step3_despeckle(
+            self, 
+            sar: jnp.ndarray, 
+            descriptor: jnp.ndarray,
+            sigma_distance: float, 
+            radius_despeckling: int, 
+            n_blocks: int) -> jnp.ndarray:
         """        
         Despeckle the SAR image using the filtered texture descriptor.
 
@@ -212,19 +225,20 @@ class SARDespeckling:
             raise ValueError("No DUBF has been performed yet. Call run() first.")
         return self.error
 
-    def run(self,
-            sar: jnp.ndarray,
-            opt: jnp.ndarray,
-            radius_descriptor: float = 21,
-            sigma_spatial: float = 5,
-            sigma_luminance_opt: float = 0.1,
-            sigma_luminance_sar: float = 0.1,
-            alpha: float = 1.0,
-            n_iterations: int = 30,
-            n_blocks_dubf: int = 10,
-            sigma_distance: float = 1.5,
-            radius_despeckling: int = 50,
-            n_blocks_despeckling: int = 100) -> jnp.ndarray:
+    def run(
+        self,
+        sar: jnp.ndarray,
+        opt: jnp.ndarray,
+        radius_descriptor: int,
+        sigma_spatial: float,
+        sigma_guides: List[float],
+        gamma_guides: List[float],
+        alpha: float,
+        n_iterations: int,
+        n_blocks_mubf: int,
+        sigma_distance: float,
+        radius_despeckling: int,
+        n_blocks_despeckling: int) -> jnp.ndarray:
         """
         Run the despeckling process.
 
@@ -240,21 +254,20 @@ class SARDespeckling:
 
         # Filter the texture descriptor using MUBF
         descriptor_filtered = self._step2_filter_texture_descriptor(
-            descriptor=descriptor,
-            opt=opt,
-            sar=sar,
+            target=descriptor,
+            guides=[opt.mean(axis=-1)[..., None], sar],
             sigma_spatial=sigma_spatial,
-            sigma_luminance_opt=sigma_luminance_opt,
-            sigma_luminance_sar=sigma_luminance_sar,
+            sigma_guides=sigma_guides,
+            gamma_guides=gamma_guides,
             alpha=alpha, 
             n_iterations=n_iterations, 
-            n_blocks=n_blocks_dubf
+            n_blocks=n_blocks_mubf
         )
         
         # Despeckle the SAR image using the filtered texture descriptor
         sar_filtered = self._step3_despeckle(
             sar=sar, 
-            descriptor_filtered=descriptor_filtered, 
+            descriptor=descriptor_filtered, 
             sigma_distance=sigma_distance, 
             radius_despeckling=radius_despeckling, 
             n_blocks=n_blocks_despeckling

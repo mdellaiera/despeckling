@@ -1,0 +1,15 @@
+name: despeckling_aef
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python==3.9
+  - matplotlib
+  - numpy
+  - scipy
+  - pip
+  - pip:
+      - rasterio
+      - "jax[cuda12]"
+      - tqdm
+      - ipykernel
