@@ -8,6 +8,7 @@ dependencies:
   - gdal
   - pip
   - pip:
+      - "jax[cuda12]"
       - rasterio
       - deepdespeckling
       - ipykernel

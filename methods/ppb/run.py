@@ -1,11 +1,8 @@
 import os
-import numpy as np
 import argparse
 import logging
-import matlab.engine
-import sys
-sys.path.insert(0, '../scripts')
-from baselines_utils import read_image, save_image, prepare_output_directory, c2ap, ap2c
+from scripts.io import read_image, save_image, prepare_output_directory, KEY_INPUT_SAR, KEY_OUTPUT_SAR
+from methods.ppb.ppb import PPB
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,7 +19,7 @@ def build_argparser():
     )
     parser.add_argument("--input_path", required=True, help="(Mandatory) Path to the .mat file containing the data.")
     parser.add_argument("--matlab_script_path", required=True, help="(Mandatory) Path to the .m script that implements the {METHOD_NAME} algorithm.")
-    parser.add_argument("--output_path", required=False, default="./results/output.mat", help="(Optional) Path to save the denoised output. Default is './results/output.mat'.")
+    parser.add_argument("--output_path", required=False, default=os.path.join(os.path.dirname(__file__), "results/output.mat"), help="(Optional) Path to save the denoised output. Default is './results/output.mat'.")
     parser.add_argument("--L", type=int, required=False, default=1, help="(Optional) ENL of the Nakagami-Rayleigh noise. Default is 1.")
     parser.add_argument("--hw", type=int, required=False, default=10, help="(Optional) Half sizes of the search window width. Default is 10.")
     parser.add_argument("--hd", type=int, required=False, default=3, help="(Optional) Half sizes of the  window width. Default is 3.")
@@ -34,40 +31,17 @@ def build_argparser():
     return parser
 
 
-def process_image(data: np.ndarray, 
-                  matlab_script_path: str, 
-                  L: int, 
-                  hw: int, 
-                  hd: int, 
-                  alpha: float, 
-                  T: float, 
-                  nbits: int, 
-                  estimate_path: str = None) -> np.ndarray:
-    assert estimate_path is None, "Not implemented error: estimate_path is not supported in this implementation."
-    amplitude, phase = c2ap(data)
-    eng = matlab.engine.start_matlab()
-    eng.addpath(os.path.dirname(matlab_script_path), nargout=0)
-    eng.eval("cd('{}')".format(os.path.dirname(matlab_script_path)), nargout=0)
-    try:
-        y = eng.ppb_nakagami(matlab.double(amplitude.tolist()), matlab.double(L), matlab.double(hw), matlab.double(hd), matlab.double(alpha), matlab.double(T), matlab.double(nbits), nargout=1)
-        filtered = np.array(y).reshape(amplitude.shape)
-        eng.quit()
-    except Exception as e:
-        eng.quit()
-        raise RuntimeError(f"Error during execution: {e}")
-    output = ap2c(filtered, phase)
-    return output
-
-
 def main():
     logger.info(f"Starting {METHOD_NAME} denoising process.")
     parser = build_argparser()
     args = parser.parse_args()
 
+    Filter = PPB(args.matlab_script_path)
+    input_sar = read_image(args.input_path, key=KEY_INPUT_SAR)
+    output_sar = Filter.filter(input_sar, args.L, args.hw, args.hd, args.alpha, args.T, args.nbits)
+
     prepare_output_directory(args.output_path)
-    data = read_image(args.input_path, 'sar')
-    output = process_image(data, args.matlab_script_path, args.L, args.hw, args.hd, args.alpha, args.T, args.nbits, args.estimate_path)
-    save_image(args.output_path, output, 'sar_despeckled')
+    save_image(args.output_path, output_sar, KEY_OUTPUT_SAR)
     logger.info(f"Completed. Output saved to {args.output_path}")
 
 

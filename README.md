@@ -31,16 +31,15 @@ $ conda init
 ```bash
 $ git clone https://github.com/mdellaiera/despeckling.git
 $ cd despeckling
-$ mamba env create -f environment.yml
 ```
 
 The environment created allows to use our method.
 
 ## Alternative methods
 
-The baselines folder includes code or Python wrappers that allow you to reuse methodologies from the literature. Each method can be run using its corresponding environment. For detailed descriptions of each non-deep learning method, please refer to the excellent article [A Tutorial on Speckle Reduction in Synthetic Aperture Radar Images](https://ieeexplore.ieee.org/document/6616053). In addition, an overview of deep learning models can be found at [Deep Learning Methods For Synthetic Aperture Radar Image Despeckling: An Overview Of Trends And Perspectives](https://ieeexplore.ieee.org/document/9416740).
+The method folder includes code or Python wrappers that allow you to reuse methodologies from the literature. Each method can be run using its corresponding environment. For detailed descriptions of each non-deep learning method, please refer to the excellent article [A Tutorial on Speckle Reduction in Synthetic Aperture Radar Images](https://ieeexplore.ieee.org/document/6616053). In addition, an overview of deep learning models can be found at [Deep Learning Methods For Synthetic Aperture Radar Image Despeckling: An Overview Of Trends And Perspectives](https://ieeexplore.ieee.org/document/9416740).
 
-Matlab must be installed on your system to use this method. Python can call matlab code through the Matlab engine. Please follow the installation procedure at https://pypi.org/project/matlabengine/.
+Matlab must be installed on your system to use some of these methods. Python can call matlab code through the Matlab engine. Please follow the installation procedure at https://pypi.org/project/matlabengine/.
 
 
 | Methods | Input type | Optical-Guided | Deep learning | Article | Code | 
@@ -54,7 +53,7 @@ Matlab must be installed on your system to use this method. Python can call matl
 | Speckle2void | Amplitude | No | Yes | [Speckle2Void: Deep Self-Supervised SAR Despeckling with Blind-Spot Convolutional Neural Networks](https://arxiv.org/abs/2007.02075) | [GitHub](https://github.com/diegovalsesia/speckle2void) |
 | GBF    | Amplitude | Yes | No | [SAR despeckling guided by an optical image](https://ieeexplore.ieee.org/document/6947286) | No code available online, it has been re-implemented based on the article |
 | GNLM      | Amplitude | Yes | No | [Guided patch-wise nonlocal SAR despeckling](https://arxiv.org/abs/1811.11872) | [University website](https://github.com/grip-unina/GNLM) |
-| Fuse-MERLIN   | Complex data | Yes | Yes | [SELF-SUPERVISED LEARNING OF MULTI-MODAL COOPERATION FOR SAR DESPECKLING](https://telecom-paris.hal.science/hal-04676452v1/document) | Please contact the main author at ... to obtain filtered images |
+| Fuse-MERLIN   | Complex data | Yes | Yes | [SELF-SUPERVISED LEARNING OF MULTI-MODAL COOPERATION FOR SAR DESPECKLING](https://telecom-paris.hal.science/hal-04676452v1/document) | Please contact the main author to obtain filtered images |
 
 ## Project Structure
 

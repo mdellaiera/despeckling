@@ -1,11 +1,8 @@
 import os
-import torch
-import numpy as np
 import argparse
 import logging
-import sys
-sys.path.insert(0, '../scripts')
-from baselines_utils import read_image, save_image, prepare_output_directory
+from scripts.io import read_image, save_image, prepare_output_directory, KEY_INPUT_SAR, KEY_OUTPUT_SAR
+from methods.sar2sar.sar2sar import SAR2SAR
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,45 +19,9 @@ def build_argparser():
     )
     parser.add_argument("--input_path", required=True, help="(Mandatory) Path to the .mat file containing the data.")
     parser.add_argument("--project_path", required=True, help="(Mandatory) Path to the project.")
-    parser.add_argument("--output_path", required=False, default="./results/output.mat", help="(Optional) Path to save the denoised output. Default is './results/output.mat'.")
+    parser.add_argument("--output_path", required=False, default=os.path.join(os.path.dirname(__file__), "results/output.mat"), help="(Optional) Path to save the denoised output. Default is './results/output.mat'.")
 
     return parser
-    
-
-def process_image(data: np.ndarray, project_path: str) -> np.ndarray:
-    sys.path.insert(0, project_path)
-    from deepdespeckling.utils.constants import PATCH_SIZE, STRIDE_SIZE
-    from deepdespeckling.sar2sar.sar2sar_denoiser import Sar2SarDenoiser
-    from deepdespeckling.model import Model
-
-    class Sar2SarDenoiserFixed(Sar2SarDenoiser):
-        """Class to share parameters beyond denoising functions
-        """
-
-        def __init__(self, **params):
-            super().__init__(**params)
-
-        def load_model(self, patch_size: int) -> Model:
-            """Load model with given weights 
-
-            Args:
-                weights_path (str): path to weights  
-                patch_size (int): patch size
-
-            Returns:
-                model (Model): model loaded with stored weights
-            """
-            model = Model(torch.device(self.device),
-                        height=patch_size, width=patch_size)
-            model.load_state_dict(torch.load(
-                self.weights_path, map_location=torch.device("cpu"), weights_only=False)['model_state_dict'])
-
-            return model
-
-    input = np.sqrt(np.real(data)**2 + np.imag(data)**2)
-    denoiser = Sar2SarDenoiserFixed()
-    output = denoiser.denoise_image(input, patch_size=PATCH_SIZE, stride_size=STRIDE_SIZE)['denoised']
-    return output.squeeze()
 
 
 def main():
@@ -68,10 +29,12 @@ def main():
     parser = build_argparser()
     args = parser.parse_args()
 
+    Filter = SAR2SAR(args.project_path)
+    input_sar = read_image(args.input_path, key=KEY_INPUT_SAR)
+    output_sar = Filter.filter(input_sar)
+
     prepare_output_directory(args.output_path)
-    data = read_image(args.input_path, 'sar')
-    output = process_image(data, args.project_path)
-    save_image(args.output_path, output, 'sar_despeckled')
+    save_image(args.output_path, output_sar, KEY_OUTPUT_SAR)
     logger.info(f"Completed. Output saved to {args.output_path}")
 
 

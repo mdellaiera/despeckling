@@ -17,4 +17,5 @@ dependencies:
   - h5py==2.9.0
   - pip
   - pip:
+      - "jax[cuda12]"
       - csbdeep==0.5.1

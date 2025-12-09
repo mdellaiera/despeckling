@@ -23,11 +23,10 @@ def build_argparser():
     parser = argparse.ArgumentParser(
         description=f"Test {METHOD_NAME}."
     )
-    parser.add_argument("--input_path_sar", required=True, help="(Mandatory) Path to the .mat file containing the SAR data.")
-    parser.add_argument("--input_path_opt", required=True, help="(Mandatory) Path to the .mat file containing the optical data.")
+    parser.add_argument("--input_path_sar", required=True, help="(Mandatory) Path to the file containing the data.")
     parser.add_argument("--matlab_script_path", required=True, help="(Mandatory) Path to the .m script that implements the {METHOD_NAME} algorithm.")
-    parser.add_argument("--output_path", required=False, default="./results/output.mat", help="(Optional) Path to save the denoised output. Default is './results/output.mat'.")
-    parser.add_argument("--L", type=float, required=False, default=1, help="(Optional) Number of looks. Default is 1.")
+    parser.add_argument("--output_path", required=False, default=os.path.join(os.path.dirname(__file__), "results/output.mat"), help="(Optional) Path to save the denoised output. Default is './results/output.mat'.")
+    parser.add_argument("--L", type=int, required=False, default=1, help="(Optional) Number of looks. Default is 1.")
     parser.add_argument("--window_size", type=int, required=False, default=31, help="(Optional) Window size. Default is 31.")
     parser.add_argument("--lambda_S", type=float, required=False, default=0.005, help="(Optional) Weight for spatial Gaussian kernel. Default is 0.005.")
     parser.add_argument("--lambda_RO", type=float, required=False, default=0.02, help="(Optional) Weight for optical luminance kernel. Default is 0.02.")

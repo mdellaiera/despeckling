@@ -25,7 +25,7 @@ def build_argparser():
     )
     parser.add_argument("--input_path_sar", required=True, help="(Mandatory) Path to the .mat file containing the SAR data.")
     parser.add_argument("--input_path_embeddings", required=True, help="(Mandatory) Path to the .mat file containing the embeddings data.")
-    parser.add_argument("--output_path", required=False, default="./results/output.mat", help="(Optional) Path to save the denoised output. Default is './results/output.mat'.")
+    parser.add_argument("--output_path", required=False, default=os.path.join(os.path.dirname(__file__), "results/output.mat"), help="(Optional) Path to save the denoised output. Default is './results/output.mat'.")
     parser.add_argument("--sigma_distance", type=float, required=False, default=0.1, help="(Optional) Sigma distance for the Gaussian kernel. Default is 0.1.")
     parser.add_argument("--radius_despeckling", type=int, required=False, default=30, help="(Optional) Radius for despeckling. Default is 30.")
     parser.add_argument("--n_blocks", type=int, required=False, default=10, help="(Optional) Number of blocks for processing. Default is 10.")

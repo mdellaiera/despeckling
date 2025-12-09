@@ -9,6 +9,7 @@ dependencies:
   - scipy
   - pip
   - pip:
+      - "jax[cuda12]"
       - rasterio
       - matlabengine
       - ipykernel
