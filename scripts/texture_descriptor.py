@@ -1,3 +1,4 @@
+import jax
 import jax.numpy as jnp
 from jax import vmap
 from jax.scipy.signal import convolve as conv2
@@ -87,8 +88,8 @@ def compute_average(tensor: jnp.ndarray, kernel: jnp.ndarray) -> jnp.ndarray:
         Averaged tensor of shape (H, W, C).
     """
     def monochannel_filter(channel):
-        out = conv2(channel, kernel, mode='same')
-        out = conv2(out, kernel.T, mode='same')
+        out = conv2(channel, kernel, mode='same', method="fft")
+        out = conv2(out, kernel.T, mode='same', method="fft")
         return out
 
     averaged_tensor = vmap(monochannel_filter, in_axes=2, out_axes=2)(tensor)
@@ -117,8 +118,8 @@ def compute_covariance(tensor: jnp.ndarray, tensor_averaged: jnp.ndarray, kernel
 
     # Vectorize the Gaussian filtering across channel pairs using vmap
     def filter_2d(mat):
-        out = conv2(mat, kernel, mode='same')
-        out = conv2(out, kernel.T, mode='same')
+        out = conv2(mat, kernel, mode='same', method="fft")
+        out = conv2(out, kernel.T, mode='same', method="fft")
         return out
     # Batch filtering over last two axes (C, C)
     products_filtered = vmap(
@@ -219,3 +220,12 @@ def compute_similarity_map(S_p: jnp.ndarray, S: jnp.ndarray, sigma_d: float = 0.
     distsq = jnp.sum((S - S_p)**2, axis=-1)  # (H, W)
     similarity_map = jnp.exp(-distsq / (2 * sigma_d ** 2))
     return similarity_map
+
+
+def compute_descriptor_variance(S: jnp.ndarray, kernel: jnp.ndarray) -> jnp.ndarray:
+    cpu = jax.devices("cpu")[0]
+    with jax.default_device(cpu):
+        S_mean =  compute_average(S, kernel)
+        S_cov = compute_covariance(S, S_mean, kernel)
+        S_var = jnp.linalg.norm(S_cov, axis=(2,3))
+    return S_var

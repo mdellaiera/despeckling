@@ -24,7 +24,7 @@ $ mex -glnxa64 -largeArrayDims -O -v -D_GLIBCXX_USE_CXX11_ABI=0 -I../include -DG
 ```
 It should create a **guidedNLMeans_b04.mexa64** file.
 
-Finally, run the algorithm.
+Finally, run the algorithm (the smooth version).
 
 ```bash
 $ cd despeckling
@@ -36,7 +36,19 @@ $ conda activate despeckling_gnlm
 $ pip install -e .
 
 $ gnlm \
-    --input_path ../dataset/data.npz \
+    --input_path ../dataset/data_village.npz \
+    --matlab_script_path ../GNLM/matlab/guidedNLMeans.m \
+    --L 1 \
+    --stack_size 1521 \
+    --sharpness 0.004 \
+    --balance 0.15 \
+    --th_sar 2.0 \
+    --block_size 8 \
+    --win_size 39 \
+    --stride 3
+
+$ gnlm \
+    --input_path ../dataset/data_village.npz \
     --matlab_script_path ../GNLM/matlab/guidedNLMeans.m \
     --L 1 \
     --stack_size 256 \

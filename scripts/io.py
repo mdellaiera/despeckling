@@ -34,7 +34,7 @@ def save_image(output_path: str, image: np.ndarray, key: str):
     extension = os.path.splitext(output_path)[1]
     if extension not in SUPPORTED_FORMATS:
         raise ValueError(f"Unsupported file format. Use {SUPPORTED_FORMATS} files.")
-    plt.imsave(output_path.replace(extension, '.png'), c2ap(image)[0].squeeze(), cmap='gray')  # Preview
+    plt.imsave(output_path.replace(extension, '.png'), c2ap(image)[0].squeeze(), cmap='gray', dpi=300)  # Preview
     if extension in ('.npy', '.npz'):
         np.savez_compressed(output_path, **{key: image})
     elif extension == '.mat':

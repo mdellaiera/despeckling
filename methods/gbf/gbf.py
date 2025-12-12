@@ -1,295 +1,115 @@
-import os
-import numpy as np
 import jax
 import jax.numpy as jnp
-from typing import List
-from tqdm import tqdm
-import matlab.engine
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-
-def process_image(data_sar: np.ndarray, 
-                  data_opt: np.ndarray, 
-                  matlab_script_path: str,
-                  L: int,
-                  window_size: int, 
-                  lambda_S: float, 
-                  lambda_RO: float, 
-                  lambda_RS: float,
-                  N: List[int],
-                  gamma: float,
-                  a0: float) -> np.ndarray:
-    input_opt = jnp.array(data_opt, dtype=jnp.float32).mean(axis=-1).squeeze()
-    input_sar = jnp.array(data_sar, dtype=jnp.float32).squeeze()
-
-    despeckling = SARDespeckling()
-    output = despeckling.filter(
-        sar=input_sar,
-        opt=input_opt,
-        matlab_script_path=matlab_script_path,
-        L=L,
-        window_size=window_size,
-        lambda_S=lambda_S,
-        lambda_RO=lambda_RO,
-        lambda_RS=lambda_RS,
-        N=N,
-        gamma=gamma,
-        a0=a0
-    )
-
-    return output
+import numpy as np
+from typing import List, Tuple
+from scripts.mubf import MUBF
+from scripts.enl import ENLClassifier
+from methods.sarbm3d.sarbm3d import SARBM3D
+from scripts.parallelisation import extract_patches
 
 
-def extract_patches(tensor: jnp.ndarray, kernel_size: int) -> jnp.ndarray:
-        """
-        Extracts sliding patches from a 2D tensor.
+class BF(MUBF):
+    """Bilateral Filter (BF)."""
 
-        Parameters:
-        tensor: 
-            Input tensor of size (H, W)
-        kernel_size: int
-            Size of the square kernel (must be odd).
-        Returns: 
-        jnp.ndarray
-            A tensor of size (H, W, kernel_size, kernel_size) containing the extracted patches.
-        """
-        assert kernel_size % 2 == 1, "Kernel size must be odd."
-        assert tensor.ndim < 3, "Input tensor must be 2D."
+    # def _compute_luminance_weights(self, 
+    #                                 luminance: jnp.ndarray, 
+    #                                 radius: int, 
+    #                                 lmbda: float,
+    #                                 euclidian_distance: bool = True) -> jnp.ndarray:
+    #     """
+    #     Compute the luminance weights.
 
-        H, W = tensor.shape  
-        pad = kernel_size // 2  
-        tensor = jnp.pad(tensor, ((pad, pad), (pad, pad)), mode='reflect')
+    #     Parameters:
+    #     luminance : jnp.ndarray
+    #         The luminance map of shape (H, W).
+    #     radius : int
+    #         The radius of the Gaussian kernel.
+    #     lmbda : float
+    #         The weight for the luminance kernel.
+    #     euclidian_distance : bool
+    #         If True, use Euclidean distance for luminance weighting. Else, use the SAR-domain range distance.
 
-        # Create indices for the sliding window
-        h_idx = jnp.arange(0, H)
-        w_idx = jnp.arange(0, W)
+    #     Returns:
+    #     jnp.ndarray
+    #         The computed luminance weights of shape (H, W, k, k).
+    #     """
+    #     eps = 1e-10
+    #     kernel_size = 2 * radius + 1  # k = 2 * r + 1
+    #     patches = extract_patches(luminance, kernel_size)   # (H, W, k, k)
+    #     centers = patches[..., radius, radius]  # (H, W)
+    #     centers = centers[..., None, None] # (H, W, 1, 1)
 
-        # Create a function to extract patches for each (i, j) pair
-        def get_patch(i: int, j: int) -> jnp.ndarray:
-            patch = jax.lax.dynamic_slice(operand=tensor, 
-                                        start_indices=(i, j), 
-                                        slice_sizes=(kernel_size, kernel_size))
-            return patch
+    #     if euclidian_distance:
+    #         distance = (patches - centers)**2  # (H, W, k, k)
+    #     else:
+    #         distance = jnp.log2(patches / (centers + eps) - centers / (patches + eps))  # (H, W, k, k)
 
-        # Use vmap to vectorize the extraction of patches across the height and width indices
-        patches = jax.vmap(
-            lambda i: jax.vmap(lambda j: get_patch(i, j))(w_idx)
-        )(h_idx)
-        return patches 
+    #     weights = jnp.exp(-lmbda * distance)  # (H, W, k, k)
+    #     return weights
 
+    # def _compute_gaussian_weights(self, radius: int, lmbda: float) -> jnp.ndarray:
+    #     """
+    #     Compute the normalized Gaussian weights for the spatial domain.
 
-class BF:
-    """Guided Bilateral Filter (GBF)."""
+    #     Parameters:
+    #     radius : int
+    #         The radius of the Gaussian kernel.
+    #     lmbda : float
+    #         The weight for the Gaussian kernel.
 
-    def _compute_luminance_weights(self, 
-                                    luminance: jnp.ndarray, 
-                                    radius: int, 
-                                    lmbda: float,
-                                    euclidian_distance: bool = True) -> jnp.ndarray:
-        """
-        Compute the luminance weights.
+    #     Returns:
+    #     jnp.ndarray
+    #         The normalized Gaussian weights of shape (k, k).
+    #     """
+    #     x = jnp.arange(-radius, radius + 1)
+    #     kernel = jnp.exp(-lmbda * (x * x))
+    #     kernel = kernel / sum(kernel)
+    #     kernel = kernel.reshape(-1, 1)
+    #     return kernel @ kernel.T
 
-        Parameters:
-        luminance : jnp.ndarray
-            The luminance map of shape (H, W).
-        radius : int
-            The radius of the Gaussian kernel.
-        lmbda : float
-            The weight for the luminance kernel.
-        euclidian_distance : bool
-            If True, use Euclidean distance for luminance weighting. Else, use the SAR-domain range distance.
+    def lmbda2sigma(self, lmbda: float) -> float:
+        return jnp.sqrt(0.5 / lmbda)
+    
+    def lmbda2radius(self, lmbda: float) -> int:
+        return int(jnp.ceil(3 * self.lmbda2sigma(lmbda)))
+    
+    def _update(self, target: jnp.ndarray, update: jnp.ndarray, alpha: float) -> Tuple[jnp.ndarray, float]:
+        error = float(jnp.linalg.norm(update - target))
+        return update, error  # No update in BF, just return the filtered result.
 
-        Returns:
-        jnp.ndarray
-            The computed luminance weights of shape (H, W, k, k).
-        """
-        eps = 1e-10
-        kernel_size = 2 * radius + 1  # k = 2 * r + 1
-        patches = extract_patches(luminance, kernel_size)   # (H, W, k, k)
-        centers = patches[..., radius, radius]  # (H, W)
-        centers = centers[..., None, None] # (H, W, 1, 1)
+    def _loop_over_blocks(
+            self, 
+            start_index: Tuple[int, int], 
+            end_index: Tuple[int, int], 
+            target: jnp.ndarray,
+            update: jnp.ndarray,
+            guides: List[jnp.ndarray],
+            sigmas: List[float],
+            gammas: List[float],
+            gaussian_weights: jnp.ndarray,
+            kernel_size: int,
+            euclidian_distance: bool) -> jnp.ndarray:
+        radius = kernel_size // 2
+        patches = extract_patches(target, kernel_size, start_index, end_index)
 
-        if euclidian_distance:
-            distance = (patches - centers)**2  # (H, W, k, k)
-        else:
-            distance = jnp.log2(patches / (centers + eps) - centers / (patches + eps))  # (H, W, k, k)
-
-        weights = jnp.exp(-lmbda * distance)  # (H, W, k, k)
-        return weights
-
-    def _compute_gaussian_weights(self, radius: int, lmbda: float) -> jnp.ndarray:
-        """
-        Compute the normalized Gaussian weights for the spatial domain.
-
-        Parameters:
-        radius : int
-            The radius of the Gaussian kernel.
-        lmbda : float
-            The weight for the Gaussian kernel.
-
-        Returns:
-        jnp.ndarray
-            The normalized Gaussian weights of shape (k, k).
-        """
-        x = jnp.arange(-radius, radius + 1)
-        kernel = jnp.exp(-lmbda * (x * x))
-        kernel = kernel / sum(kernel)
-        kernel = kernel.reshape(-1, 1)
-        return kernel @ kernel.T
-
-    def filter(self, 
-               sar: jnp.ndarray, 
-               opt: jnp.ndarray, 
-               window_size: int = 31, 
-               lambda_S: float = 0.005, 
-               lambda_RO: float = 0.02, 
-               lambda_RS: float = 0.1,
-               euclidian_distance: bool = True) -> jnp.ndarray:
-        """
-        Apply filter.
-
-        Parameters
-        sar : jnp.ndarray
-            Input tensor of shape (H, W).
-        opt : jnp.ndarray
-            Luminance tensor of shape (H, W).
-        window_size : int
-            Size of the square kernel (must be odd).
-        lambda_S : float
-            Weight for spatial Gaussian kernel.
-        lambda_RO : float
-            Weight for optical luminance kernel.
-        lambda_RS : float
-            Weight for SAR luminance kernel.
-        euclidian_distance : bool
-            If True, use Euclidean distance for luminance weighting. Else, use the SAR-domain range distance.
-
-        Returns
-        jnp.ndarray
-            Filtered tensor of shape (H, W).
-        """
-        radius = int(window_size // 2)  # r
-        H, W = sar.shape
-
-        # Pad the input arrays to handle borders
-        pad_width = ((radius, radius), (radius, radius))
-        sar_padded = jnp.pad(sar.copy(), pad_width, mode='reflect')  # (H', W'), with H' = H + 2*r and W' = W + 2*r
-        opt_padded = jnp.pad(opt.copy(), pad_width, mode='reflect')  # (H', W')
-
-        # Extract patches from the SAR image
-        sar_patches = extract_patches(sar_padded, window_size)  # (H', W', k, k), corresponds to v(s) in Eq. 1
-
-        # Precompute Gaussian weights
-        w_S = lambda_S * self._compute_gaussian_weights(radius, lambda_S).reshape(1, 1, window_size, window_size)  # (1, 1, k, k)
-        w_RO = lambda_RO * self._compute_luminance_weights(opt_padded, radius, lambda_RO, euclidian_distance)   # (H', W', k, k)
-        w_RS = lambda_RS * self._compute_luminance_weights(sar_padded, radius, lambda_RS, euclidian_distance)  # (H', W', k, k)
+        w_S = gaussian_weights
+        w_RO = self._compute_guide_weights(guides[0], sigmas[0], radius, start_index, end_index, True)
+        w_RS = self._compute_guide_weights(guides[1], sigmas[1], radius, start_index, end_index, euclidian_distance) 
 
         # Combine weights
         w = w_S * w_RO * w_RS  # (H', W', k, k), corresponds to w(s, t) in Eq. 1, computed as Eq. 3
         w = w / (w.sum(axis=(-2, -1), keepdims=True) + 1e-10)
 
         # Filter
-        sar_filtered = (w * sar_patches).sum(axis=(-2, -1))  # (H', W')
+        # sar_filtered = (w * patches).sum(axis=(-2, -1))  # (H', W')
 
-        # Unpad to get output of shape (H, W)
-        return sar_filtered[radius:H+radius, radius:W+radius]  # (H, W)
-    
+        # Weighted sum over window
+        update_block = (w * patches).sum(axis=(-3, -2))  # (H', W', D)
 
-class SARBM3D:
-    """Wrapper around SARBM3D filter."""
+        # Update only the current block
+        update = jax.lax.dynamic_update_slice(update, update_block, start_index + (0,))  
 
-    def __init__(self, matlab_script_path: str):
-        self.matlab_script_path = matlab_script_path
-        self._set_library_path()
-
-    def _set_library_path(self) -> None:
-        os.environ['LD_LIBRARY_PATH'] = os.path.join(
-            os.path.dirname(os.path.abspath(self.matlab_script_path)), "lib_opencv210/glnxa64"
-        ) + ":" + os.environ.get('LD_LIBRARY_PATH', '')
-
-    def _preprocess_input(self, sar: jnp.ndarray) -> jnp.ndarray:
-        return np.log1p(np.abs(sar**2))
-
-    def filter(self, sar: jnp.ndarray, L: int) -> jnp.ndarray:
-        input = self._preprocess_input(sar)
-        
-        eng = matlab.engine.start_matlab()
-        eng.addpath(os.path.dirname(self.matlab_script_path), nargout=0)
-        eng.eval("cd('{}')".format(os.path.dirname(self.matlab_script_path)), nargout=0)
-        try:
-            y = eng.SARBM3D_v10(matlab.double(input.tolist()), matlab.double(L), nargout=2)
-            output = jnp.array(y[0]).reshape(input.shape)
-            eng.quit()
-        except Exception as e:
-            eng.quit()
-            raise RuntimeError(f"Error during execution: {e}")
-        return output
-    
-
-class SoftClassifier:
-    """Soft classifier to linearly combine multiple filtered estimates."""
-
-    def __init__(self):
-        pass
-
-    def _compute_enl(self, sar: jnp.ndarray, window_size: int) -> float:
-        """
-        Compute the Equivalent Number of Looks (ENL) for a given SAR image.
-
-        Parameters:
-        sar : jnp.ndarray
-            Input image of shape (H, W).
-        window_size : int
-            Size of the window for local statistics.
-
-        Returns:
-        float
-            The ENL value.
-        """
-        radius = window_size // 2
-        sar_padded = jnp.pad(sar, ((radius, radius), (radius, radius)), mode='reflect')  # (H', W')
-
-        # Extract patches
-        patches = extract_patches(sar_padded, window_size)  # (H', W', k, k)
-
-        # Compute local mean and variance
-        local_mean = patches.mean(axis=(-2, -1))  # (H', W')
-        local_var = patches.var(axis=(-2, -1))  # (H', W')
-
-        # Compute ENL
-        enl = local_mean**2 / (local_var + 1e-10)  # Avoid division by zero
-        enl = enl[radius:-radius, radius:-radius]  # Unpad to get output of shape (H, W)
-        return enl  # Return the average ENL over the image
-    
-    def compute_weight(self, sar: jnp.ndarray, N: List[int], gamma: float = 7, a0: float = 0.64) -> jnp.ndarray:
-        """
-        Compute the soft classification weight for SAR despeckling.
-
-        Parameters:
-        sar : jnp.ndarray
-            Input SAR image of shape (H, W).
-        N : List[int]
-            List of equivalent look numbers for each class.
-        gamma : float
-            Parameter for the soft classification weight.
-        a0 : float
-            Parameter for the soft classification weight.
-
-        Returns:
-        jnp.ndarray
-            The soft classification weight of shape (H, W).
-        """
-        at = jnp.zeros_like(sar)
-        for n in tqdm(N):
-            at += self._compute_enl(sar, window_size=n)
-        at = at / len(N)
-
-        ft = jnp.exp(-gamma * (at - a0)) + 1
-        ft = 1 / ft
-        return ft
+        return update
     
 
 class GBF:
@@ -299,32 +119,47 @@ class GBF:
     """
 
     def __init__(self):
-        self.uO = None  # Output from ODUBF
+        self.uO = None  # Output from GBF
         self.uS = None  # Output from SARBM3D
         self.ft = None  # Soft classification weight
+        self.at: List = None 
 
     def filter(self, 
                sar: jnp.ndarray, 
-               opt: jnp.ndarray, 
+               eo: jnp.ndarray, 
                matlab_script_path: str,
                L: int = 1,
-               window_size: int = 31, 
+            #    window_size: int = 31, 
                lambda_S: float = 0.005, 
                lambda_RO: float = 0.02, 
                lambda_RS: float = 0.1,
                N: List[int] = np.arange(7, 63, 2),
                gamma: float = 7,
-               a0: float = 0.64) -> jnp.ndarray:
-        gbf = GBF()
-        sarbm3d = SARBM3D(matlab_script_path=matlab_script_path)
-        soft_classifier = SoftClassifier()
+               a0: float = 0.64,
+               n_blocks: int = 10,
+               euclidian_distance: bool = True) -> jnp.ndarray:
+        input_eo = jnp.array(eo, dtype=jnp.float32)
+        input_sar = jnp.array(sar, dtype=jnp.float32)
 
-        logging.info("Applying GBF...")
-        self.uO = gbf.filter(sar, opt, window_size, lambda_S, lambda_RO, lambda_RS)
-        logging.info("Applying SARBM3D...")
-        self.uS = sarbm3d.filter(sar, L=L)
-        logging.info("Computing soft classification weight...")
-        self.ft = soft_classifier.compute_weight(sar, N, gamma, a0)
+        gbf = BF()
+        sarbm3d = SARBM3D(matlab_script_path=matlab_script_path)
+        classifier = ENLClassifier()
+
+        sigma_spatial = gbf.lmbda2sigma(lambda_S)
+        sigma_guides = [gbf.lmbda2sigma(lambda_RO), gbf.lmbda2sigma(lambda_RS)]
+
+        self.uO = gbf.filter(
+            input_sar, 
+            input_eo, 
+            sigma_spatial=sigma_spatial, 
+            sigma_guides=sigma_guides, 
+            n_iterations=1, 
+            n_blocks=n_blocks, 
+            euclidian_distance=euclidian_distance
+        )
+        self.uS = sarbm3d.filter(input_sar, L=L)
+        self.ft = classifier.classify(input_sar, N, gamma, a0)
+        self.at = classifier.at
 
         return self.ft * self.uO + (1 - self.ft) * self.uS
     

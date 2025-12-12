@@ -66,7 +66,8 @@ class MUBF:
                                sigma: float, 
                                radius: int, 
                                start_index: Tuple[int, int], 
-                               end_index: Tuple[int, int]) -> jnp.ndarray:
+                               end_index: Tuple[int, int],
+                               euclidian_distance: bool) -> jnp.ndarray:
         """
         Compute the luminance weights.
 
@@ -81,6 +82,8 @@ class MUBF:
             The starting index for the patch extraction.
         end_index : Tuple[int, int]
             The ending index for the patch extraction.
+        euclidian_distance : bool
+            If True, use Euclidean distance for luminance weighting. Else, use the SAR-domain range distance.
 
         Returns:
         jnp.ndarray
@@ -90,7 +93,12 @@ class MUBF:
         patches = extract_patches(guide, kernel_size, start_index, end_index)   # (H', W', k, k, 1)
         centers = patches[..., radius, radius, :]  # (H', W', 1)
         centers = centers[..., None, None, :] # (H', W', 1, 1, 1)
-        weights = jnp.exp(-(patches - centers)**2 / (2 * sigma ** 2))  # (H', W', k, k, 1)
+        if euclidian_distance:
+            distance = (patches - centers)**2  # (H', W', k, k, 1)
+        else:
+            eps = 1e-10
+            distance = -jnp.log2(patches / (centers + eps) - centers / (patches + eps))**2  # (H', W', k, k, 1)
+        weights = jnp.exp(-distance / (2 * sigma ** 2))  # (H', W', k, k, 1)
         return weights
     
     def _compute_weights(self, 
@@ -100,7 +108,8 @@ class MUBF:
                          radius: int, 
                          gaussian_weights: jnp.ndarray,
                          start_index: Tuple[int, int], 
-                         end_index: Tuple[int, int]) -> jnp.ndarray:
+                         end_index: Tuple[int, int],
+                         euclidian_distance: bool) -> jnp.ndarray:
         """ 
         Compute the Gaussian weights for the guides.
 
@@ -119,13 +128,15 @@ class MUBF:
             The starting index for the patch extraction.
         end_index : Tuple[int, int]
             The ending index for the patch extraction.
+        euclidian_distance : bool
+            Whether to use Euclidian distance for guide weight computation.
         Returns:
         jnp.ndarray
             The computed weights of shape (H', W', k, k) where H' and W' are the dimensions of the patches.
         """
         weights = gaussian_weights.copy()
         for guide, sigma, gamma in zip(guides, sigmas, gammas):
-            weights *= gamma * self._compute_guide_weights(guide, sigma, radius, start_index, end_index)
+            weights *= gamma * self._compute_guide_weights(guide, sigma, radius, start_index, end_index, euclidian_distance)
         return weights
     
     def _update(self, target: jnp.ndarray, update: jnp.ndarray, alpha: float) -> Tuple[jnp.ndarray, float]:
@@ -143,7 +154,8 @@ class MUBF:
                           sigmas: List[float],
                           gammas: List[float],
                           gaussian_weights: jnp.ndarray,
-                          kernel_size: int) -> jnp.ndarray:
+                          kernel_size: int,
+                          euclidian_distance: bool) -> jnp.ndarray:
         """
         Loop over blocks of the target.
 
@@ -166,11 +178,13 @@ class MUBF:
             Precomputed Gaussian weights of shape (1, 1, k, k, 1).
         kernel_size : int
             Size of the Gaussian kernel (k = 2 * r + 1).
+        euclidian_distance : bool
+            Whether to use Euclidian distance for guide weight computation.
         """
         # Extract windows (patches) for all spatial locations
         radius = kernel_size // 2
         patches = extract_patches(target, kernel_size, start_index, end_index)   # (H', W', k, k, D)
-        weights = self._compute_weights(guides, sigmas, gammas, radius, gaussian_weights, start_index, end_index)   # (H', W', k, k)
+        weights = self._compute_weights(guides, sigmas, gammas, radius, gaussian_weights, start_index, end_index, euclidian_distance)   # (H', W', k, k)
 
         # Difference from center/target pixel
         centers = patches[..., radius, radius, :]  # Centers are located at (radius, radius)
@@ -193,7 +207,8 @@ class MUBF:
         gamma_guides: List[float] = [1.0, 1.0],
         alpha: float = 1.0,
         n_iterations: int = 30,
-        n_blocks: int = 10
+        n_blocks: int = 10,
+        euclidian_distance: bool = True,
     ) -> Tuple[jnp.ndarray, List[float]]:
         """
         Apply filter.
@@ -216,6 +231,8 @@ class MUBF:
             Number of iterations for the filtering process.
         n_blocks : int
             Number of blocks for processing the image in parallel.
+        euclidian_distance : bool
+            Whether to use Euclidian distance for guide weight computation.
         Returns
         jnp.ndarray
             Filtered tensor of shape (H, W, D) after applying the unnormalized bilateral filter.
@@ -251,7 +268,8 @@ class MUBF:
                     sigmas=sigma_guides,
                     gammas=gamma_guides,
                     gaussian_weights=gaussian_weights,
-                    kernel_size=kernel_size
+                    kernel_size=kernel_size,
+                    euclidian_distance=euclidian_distance,
                 )
 
             # Update
