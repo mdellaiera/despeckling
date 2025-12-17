@@ -8,7 +8,8 @@ $ conda activate despeckling_gbf
 $ pip install -e .
 
 $ gbf \
-    --input_path_sar ../dataset/data.npz \
+    --input_path ../dataset/data_village.npz \
+    --output_path methods/gbf/results/output_village_gbf.mat \
     --matlab_script_path .../SARBM3D_v10_linux64/SARBM3D_v10.m
     --L 1 \
     --window_size 15 \

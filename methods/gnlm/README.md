@@ -37,6 +37,7 @@ $ pip install -e .
 
 $ gnlm \
     --input_path ../dataset/data_village.npz \
+    --output_path methods/gnlm/results/output_village_gnlm.mat \
     --matlab_script_path ../GNLM/matlab/guidedNLMeans.m \
     --L 1 \
     --stack_size 1521 \
@@ -49,6 +50,7 @@ $ gnlm \
 
 $ gnlm \
     --input_path ../dataset/data_village.npz \
+    --output_path methods/gnlm/results/output_village_gnlm.mat \
     --matlab_script_path ../GNLM/matlab/guidedNLMeans.m \
     --L 1 \
     --stack_size 256 \

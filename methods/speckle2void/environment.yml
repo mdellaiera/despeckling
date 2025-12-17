@@ -3,17 +3,17 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  - python
-  - numpy==1.16.3
-  - scipy==1.3.0
+  - python==3.10
+  - numpy
+  - scipy
   - tensorflow-gpu==1.14.0
   - tensorboard==1.14.0
-  - matplotlib==3.0.3
-  - jupyter==1.0.0
+  - matplotlib
+  - jupyter
   - keras==2.3.1
   - tifffile==2019.7.26.2
-  - scikit-image==0.15.0
-  - pillow==6.0.0
+  - scikit-image
+  - pillow
   - h5py==2.9.0
   - pip
   - pip:

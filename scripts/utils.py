@@ -1,6 +1,6 @@
 import numpy as np
 import jax.numpy as jnp
-from typing import Tuple, Union
+from typing import Tuple, Union, Dict
 
 
 def c2ap(image: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -48,20 +48,35 @@ def rgb2gray(rgb: Union[np.ndarray, jnp.ndarray]) -> Union[np.ndarray, jnp.ndarr
     return jnp.dot(rgb[..., :3], jnp.array([1./3.] * 3))
 
 
-def T(sar: np.ndarray, expand_dims: bool = False) -> np.ndarray:
+def T(sar: np.ndarray, expand_dims: bool = False) -> Tuple[np.ndarray, Dict]:
     sar = jnp.array(sar)
     sar = 20 * np.log1p(np.abs(sar))
     sar = (sar - sar.min()) / (sar.max() - sar.min())  # Normalize to [0, 1]
     if sar.ndim == 2 and expand_dims:
         sar = jnp.expand_dims(sar, axis=-1)  # (H, W) -> (H, W, 1)
-    return sar
+    return sar, {'min': sar.min(), 'max': sar.max()}
 
 
-def invT(sar: np.ndarray, scale: float = 255.) -> np.ndarray:
+def invT(sar: np.ndarray, params: Dict={'min': 0, 'max': 1}) -> np.ndarray:
     sar = jnp.array(sar)
-    sar = sar * scale
+    sar = sar * (params['max'] - params['min']) + params['min']
     sar = jnp.expm1(sar / 20)
     return sar
+
+
+def standardize(image: np.ndarray) -> Tuple[np.ndarray, Dict]:
+    """Standardize image to zero mean and unit variance."""
+    mean = np.mean(image)
+    std = np.std(image)
+    standardized_image = (image - mean) / std
+    return standardized_image, {'standardize_mean': mean, 'standardize_std': std}
+
+
+def clip(image: np.ndarray, vmin: float=0., vmax: float=1.) -> Tuple[np.ndarray, Dict]:
+    """Clip image between vmin and vmax."""
+    vmin = image.min()
+    vmax = image.max()
+    return np.clip(image, vmin, vmax), {'clip_min': vmin, 'clip_max': vmax}
 
 
 class BaseFilter:

@@ -8,7 +8,8 @@ $ conda activate despeckling_ppb
 $ pip install -e .
 
 $ ppb \
-    --input_path ../dataset/data.npz \
+    --input_path ../dataset/data_village.npz \
+    --output_path methods/ppb/results/output_village_ppb.mat \
     --matlab_script_path ../ppb/ppbNakagami/ppb_nakagami.m \
     --L 1 \
     --hw 10 \
